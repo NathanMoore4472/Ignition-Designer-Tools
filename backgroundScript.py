@@ -21,7 +21,11 @@ def create_icon_image():
     for icon_name in ("icon.png", "icon.jpg", "icon.ico"):
         icon_path = os.path.join(BASE_DIR, icon_name)
         if os.path.exists(icon_path):
-            return Image.open(icon_path)
+            # Image.open is lazy and keeps the file handle open for the life of the
+            # image, which locks icon.ico while the tray runs (breaking git checkouts).
+            # Copy it into memory and let the with-block close the file.
+            with Image.open(icon_path) as img:
+                return img.copy()
     img = Image.new("RGB", (64, 64), color=(30, 144, 255))
     draw = ImageDraw.Draw(img)
     draw.rectangle([16, 16, 48, 48], fill=(255, 255, 255))
