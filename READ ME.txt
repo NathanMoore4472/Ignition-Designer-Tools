@@ -1,0 +1,76 @@
+Project Structure:
+
+designer-tools/
+├── auto-injector.py      # Background CDP watcher & console router
+├── backgroundScript.py   # launches auto-injector in the background (icon added to tasktray for reading logs, reloading scripts and quitting)
+└── scripts/
+    ├── 00_toolbar.js            # Floating Shadow DOM toolbar (Ctrl + \), draggable & resizable
+    ├── 01_designer-find.js       # Auto-follow & Center (F / Shift+F)
+    └── 02_zoom-controls.js      # Zoom in / out / reset (Alt+= / Alt+- / Alt+0)
+
+Every .js file in /scripts is injected automatically into each designer session, in alphabetical order.
+This means you can use numbered prefixes to change the order that icons appear in the toolbar.
+Scripts add buttons to the toolbar with window.DesignerToolbar.register({ id, label, title, active, onClick })
+(or push the same config onto window.__toolbarQueue if the toolbar hasn't loaded yet).
+
+Logs are saved to background_script.log on each run, clears after every restart.
+Upon quitting, a clean up is performed and the toolbar should be removed from any designer sessions.
+
+
+Features & Shortcuts:
+
+Toolbar
+  Ctrl + \                      Show / hide the toolbar
+  Drag the "⋮⋮ Tools" handle     Move the toolbar (position is remembered)
+  Scroll over "⋮⋮ Tools"         Make the toolbar bigger / smaller (size is remembered)
+  Double-click "⋮⋮ Tools"        Reset position to top-left and size to normal (100% zoom size)
+  The toolbar keeps the same size when the Designer zoom changes, and stays on-screen when the window is resized.
+
+Center / Auto-Follow / Zoom-to-Fit
+  F                             Center the selected component(s) in the viewport (multi-select centers the whole group)
+  Shift + F                     Toggle Auto-Follow (auto-center when selecting in the Project Browser)
+  Shift + Z                     Toggle Zoom-to-Fit (remembered)
+                                  OFF: centering only pans
+                                  ON:  centering also zooms so the whole selection fits on screen
+                                       (e.g. selecting a container shows all its children). Never zooms in past 100%.
+                                       Uses the zoom controls script, so that must be loaded too.
+
+Zoom
+  Alt + =                       Zoom in
+  Alt + -                       Zoom out
+  Alt + 0                       Reset zoom to 100%
+  Toolbar buttons: "−", current zoom % (click to reset), "+"
+  Zoom steps range from 1% to 300%. The selected component is re-centered after each zoom.
+  Also available from the console: DesignerZoom.zoomIn(), .zoomOut(), .resetZoom(), .setZoom(1.5), .level
+
+
+Requirements:
+If you want to just manually copy the desiger-find.js file into external debugger, There are no pre-requisites.
+
+If you want auto attaching to your designer windows and console commands routed to command window you need:
+Python installed and websockets.
+
+`pip install websockets`
+
+
+To Run:
+
+open cmd window to /designer-tools (or shift right click within that folder > 'Open in Terminal')
+Then enter:
+python auto-injector.py
+
+If you want to run in the background in taskbar tray, you will need these additional python modules.
+
+`pip install Pillow pystray`
+
+To run in background:
+
+double click designer-tools.vbs
+Icon will appear in your task tray. Right click it for:
+  Show Terminal     Opens a live view of the log (also the default on double click)
+  Reload Scripts    Cleans up all open designer sessions, then re-injects the /scripts folder
+                    (picks up any edits, new or deleted scripts without restarting the designer)
+  Quit              Cleans up all designer sessions and exits
+
+There is also a designer-tools shortcut that you can move to wherever, you just need to right click > properties and adjust the target
+path to where this install location is.

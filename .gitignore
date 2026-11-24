@@ -1,0 +1,14 @@
+# Local tooling / editor settings
+.claude/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Not part of the project
+backup/
+output/
+Overrides/
+
+# Runtime log, rewritten on every tray-runner start
+background_script.log
