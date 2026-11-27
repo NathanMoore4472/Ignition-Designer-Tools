@@ -37,13 +37,15 @@ The toolbar has three modes. Right-click it to switch; the choice applies to all
 - **Dock above ruler:** its own strip across the top of the editor; the rulers and canvas are moved down to make room. Hiding the toolbar gives the space back.
 - **Floating:** a free-floating bar you can drag anywhere over the Designer.
 
+The toolbar (and its menu and strip) comes in a dark (default) or light theme; toggle **Light theme** in the right-click menu. Like the mode, it applies to all tabs and is remembered.
+
 A toolbar icon always sits in the ruler corner (the square where the two rulers meet at 0,0). Click it to show or hide the toolbar; it is highlighted while the toolbar is showing.
 
 | Shortcut | Action |
 |---|---|
 | `Ctrl + \` | Show / hide the toolbar — applies to all Designer tabs and is remembered until shown again |
 | Click the ruler-corner icon | Show / hide the toolbar |
-| Right-click the toolbar | Menu: Dock above ruler / Dock in ruler bar / Floating / Reset floating position & size / Hide toolbar |
+| Right-click the toolbar | Menu: Dock above ruler / Dock in ruler bar / Floating / Reset floating position & size / Light theme / Hide toolbar |
 | Drag the "⋮⋮ Tools" handle | Move the toolbar (floating; position is remembered) |
 | Scroll over "⋮⋮ Tools" | Make the toolbar bigger / smaller (floating; size is remembered) |
 | Double-click "⋮⋮ Tools" | Reset position to top-left and size to normal (floating; 100% zoom size) |
@@ -51,7 +53,7 @@ A toolbar icon always sits in the ruler corner (the square where the two rulers 
 The floating toolbar keeps the same size when the Designer zoom changes, and stays on-screen when the window is resized.
 Pages without a ruler bar fall back to floating.
 
-From the console: `DesignerToolbar.setMode('docked' | 'above' | 'floating')`, `DesignerToolbar.setHidden(true | false)`.
+From the console: `DesignerToolbar.setMode('docked' | 'above' | 'floating')`, `DesignerToolbar.setTheme('dark' | 'light')`, `DesignerToolbar.setHidden(true | false)`.
 
 ### Center / Auto-Follow / Zoom-to-Fit
 

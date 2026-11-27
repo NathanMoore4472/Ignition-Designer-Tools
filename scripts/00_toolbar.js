@@ -41,6 +41,13 @@
   host.style.cssText = 'position:fixed;top:8px;left:8px;z-index:2147483647;pointer-events:none;transform-origin:0 0;';
 
   // ---- Mode ----
+  // ---- Theme ('dark' | 'light'), shared by every tab like the mode ----
+  const THEME_KEY = '__designerToolbarTheme';
+  const readTheme = () => {
+    try { return localStorage.getItem(THEME_KEY) === 'light' ? 'light' : 'dark'; } catch { return 'dark'; }
+  };
+  let theme = readTheme();
+
   const readMode = () => {
     try {
       const m = localStorage.getItem(MODE_KEY);
@@ -87,8 +94,11 @@
 
   const strip = document.createElement('div');
   strip.id = STRIP_ID;
-  strip.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483646;box-sizing:border-box;' +
-    'background:#1f2228;border-bottom:1px solid rgba(255,255,255,0.08);';
+  strip.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483646;box-sizing:border-box;';
+  const STRIP_THEME = {
+    dark: { background: '#1f2228', borderBottom: '1px solid rgba(255,255,255,0.08)' },
+    light: { background: '#f3f4f6', borderBottom: '1px solid rgba(0,0,0,0.12)' },
+  };
 
   // ---- Floating position (draggable, remembered per gateway origin) ----
   const POS_KEY = '__designerToolbarPos';
@@ -356,6 +366,20 @@
       .bar.docked .handle { cursor: context-menu; padding: 0 2px; }
       .bar.docked .hint { display: none; }
       .bar.docked .grip { font-size: 11px; }
+
+      /* Light theme */
+      :host([data-theme="light"]) .bar {
+        background: rgba(250, 250, 251, 0.96);
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+        border: 1px solid rgba(0, 0, 0, 0.1);
+      }
+      :host([data-theme="light"]) .bar.docked { box-shadow: none; }
+      :host([data-theme="light"]) button { background: #eceef2; color: #1f2328; }
+      :host([data-theme="light"]) button:hover { background: #dfe3e9; border-color: rgba(0, 0, 0, 0.15); }
+      :host([data-theme="light"]) button.active { background: #1d4ed8; border-color: #1d4ed8; color: #ffffff; }
+      :host([data-theme="light"]) .hint { color: #6b7280; }
+      :host([data-theme="light"]) .grip { color: #9ca3af; }
+      :host([data-theme="light"]) .handle:hover { background: rgba(0, 0, 0, 0.05); }
     </style>
     <div class="bar" id="bar">
       <span class="handle" id="handle">
@@ -415,6 +439,19 @@
       .sep { height: 1px; margin: 4px 2px; background: rgba(255, 255, 255, 0.1); }
       .item.disabled { color: #6b7280; cursor: default; }
       .item.disabled:hover { background: none; }
+
+      :host([data-theme="light"]) .menu {
+        background: #ffffff;
+        color: #1f2328;
+        border-color: rgba(0, 0, 0, 0.12);
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+      }
+      :host([data-theme="light"]) .item:hover { background: #eef1f5; }
+      :host([data-theme="light"]) .item.disabled { color: #9ca3af; }
+      :host([data-theme="light"]) .item.disabled:hover { background: none; }
+      :host([data-theme="light"]) .check { color: #1d4ed8; }
+      :host([data-theme="light"]) .key { color: #6b7280; }
+      :host([data-theme="light"]) .sep { background: rgba(0, 0, 0, 0.1); }
     </style>
     <div class="menu" id="menu">
       <div class="item" data-act="above"><span class="check"></span>Dock above ruler</div>
@@ -422,6 +459,8 @@
       <div class="item" data-act="floating"><span class="check"></span>Floating (drag to move)</div>
       <div class="sep"></div>
       <div class="item" data-act="reset"><span class="check"></span>Reset floating position &amp; size</div>
+      <div class="item" data-act="light"><span class="check"></span>Light theme</div>
+      <div class="sep"></div>
       <div class="item" data-act="hide"><span class="check"></span>Hide toolbar<span class="key">Ctrl+\\</span></div>
     </div>
   `;
@@ -433,7 +472,8 @@
   const openMenu = (x, y) => {
     menu.querySelectorAll('[data-act]').forEach((item) => {
       const act = item.dataset.act;
-      item.querySelector('.check').textContent = act === mode ? '✓' : '';
+      const checked = act === mode || (act === 'light' && theme === 'light');
+      item.querySelector('.check').textContent = checked ? '✓' : '';
       // Reset only applies to floating mode
       item.classList.toggle('disabled', act === 'reset' && mode !== 'floating');
     });
@@ -466,6 +506,7 @@
     closeMenu();
     if (MODES.includes(act)) setMode(act);
     else if (act === 'reset') resetFloating();
+    else if (act === 'light') setTheme(theme === 'light' ? 'dark' : 'light');
     else if (act === 'hide') setHidden(true);
   });
 
@@ -475,6 +516,20 @@
     if (!e.composedPath().includes(menuHost)) closeMenu();
   };
   window.addEventListener('pointerdown', window.__toolbarMenuCloser, true);
+
+  // ---- Theme application ----
+  function applyTheme() {
+    host.dataset.theme = theme;
+    menuHost.dataset.theme = theme;
+    Object.assign(strip.style, STRIP_THEME[theme]);
+  }
+
+  function setTheme(next) {
+    theme = next === 'light' ? 'light' : 'dark';
+    try { localStorage.setItem(THEME_KEY, theme); } catch {}
+    applyTheme();
+    console.log(`[Toolbar] Theme: ${theme} (all tabs)`);
+  }
 
   // ---- Toggle icon: always shown in the ruler corner (where the two rulers meet) ----
   const iconHost = document.createElement('div');
@@ -639,6 +694,8 @@
     },
     setHidden,
     setMode,
+    setTheme,
+    get theme() { return theme; },
     get mode() { return mode; },
     relayout
   };
@@ -646,7 +703,9 @@
   // Other tabs: the 'storage' event fires when one tab changes a value. 'focus' is a
   // fallback re-check in case the embedded browser doesn't deliver storage events.
   window.__toolbarHiddenSync = (e) => {
-    if (e?.type === 'storage' && e.key !== HIDDEN_KEY && e.key !== MODE_KEY) return;
+    if (e?.type === 'storage' && ![HIDDEN_KEY, MODE_KEY, THEME_KEY].includes(e.key)) return;
+    const nextTheme = readTheme();
+    if (nextTheme !== theme) { theme = nextTheme; applyTheme(); }
     const wasHidden = bar.classList.contains('hidden');
     bar.classList.toggle('hidden', readHidden());
     placeIcon();
@@ -705,6 +764,7 @@
     while (window.__toolbarQueue.length) {
       renderButton(window.__toolbarQueue.shift());
     }
+    applyTheme();
     relayout();
     placeIcon();
     window.__toolbarDockObserver.observe(document.body, { childList: true, subtree: true });
