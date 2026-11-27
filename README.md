@@ -13,7 +13,7 @@ designer-tools/
 ├── designer-tools.lnk    # Shortcut to the .vbs (adjust its target path, see below)
 ├── icon.ico              # Tray icon
 └── scripts/
-    ├── 00_toolbar.js         # Floating Shadow DOM toolbar (Ctrl + \), draggable & resizable
+    ├── 00_toolbar.js         # Toolbar docked in the ruler bar or floating (Ctrl + \, right-click for options)
     ├── 01_zoom-controls.js   # Zoom in / out / reset (Alt+= / Alt+- / Alt+0)
     └── 02_designer-find.js   # Auto-follow & Center (F / Shift+F)
 ```
@@ -31,14 +31,23 @@ Upon quitting, a clean up is performed and the toolbar is removed from any Desig
 
 ### Toolbar
 
+The toolbar has two modes. Right-click it to switch; the choice applies to all Designer tabs and is remembered.
+
+- **Docked (default):** a compact strip at the right end of the view editor's top ruler bar. It sizes itself to the ruler and re-attaches if the Designer redraws the editor.
+- **Floating:** a free-floating bar you can drag anywhere over the Designer.
+
 | Shortcut | Action |
 |---|---|
 | `Ctrl + \` | Show / hide the toolbar — applies to all Designer tabs and is remembered until shown again |
-| Drag the "⋮⋮ Tools" handle | Move the toolbar (position is remembered) |
-| Scroll over "⋮⋮ Tools" | Make the toolbar bigger / smaller (size is remembered) |
-| Double-click "⋮⋮ Tools" | Reset position to top-left and size to normal (100% zoom size) |
+| Right-click the toolbar | Menu: Dock in ruler bar / Floating / Reset floating position & size / Hide toolbar |
+| Drag the "⋮⋮ Tools" handle | Move the toolbar (floating; position is remembered) |
+| Scroll over "⋮⋮ Tools" | Make the toolbar bigger / smaller (floating; size is remembered) |
+| Double-click "⋮⋮ Tools" | Reset position to top-left and size to normal (floating; 100% zoom size) |
 
-The toolbar keeps the same size when the Designer zoom changes, and stays on-screen when the window is resized.
+The floating toolbar keeps the same size when the Designer zoom changes, and stays on-screen when the window is resized.
+Pages without a ruler bar fall back to floating.
+
+From the console: `DesignerToolbar.setMode('docked' | 'floating')`, `DesignerToolbar.setHidden(true | false)`.
 
 ### Center / Auto-Follow / Zoom-to-Fit
 

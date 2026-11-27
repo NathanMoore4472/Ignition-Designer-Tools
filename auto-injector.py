@@ -42,6 +42,26 @@ CLEANUP_JS = r"""
     document.getElementById('__ignition-custom-toolbar-host').remove();
     removedAny = true;
   }
+  if (document.getElementById('__ignition-custom-toolbar-menu')) {
+    document.getElementById('__ignition-custom-toolbar-menu').remove();
+    removedAny = true;
+  }
+  if (window.__toolbarDockObserver) {
+    window.__toolbarDockObserver.disconnect();
+    delete window.__toolbarDockObserver;
+    removedAny = true;
+  }
+  if (window.__toolbarMenuCloser) {
+    window.removeEventListener('pointerdown', window.__toolbarMenuCloser, true);
+    delete window.__toolbarMenuCloser;
+    removedAny = true;
+  }
+  if (window.__toolbarZoomHandler) {
+    window.removeEventListener('resize', window.__toolbarZoomHandler);
+    window.visualViewport?.removeEventListener('resize', window.__toolbarZoomHandler);
+    delete window.__toolbarZoomHandler;
+    removedAny = true;
+  }
   if (window.__toolbarKeyHandler) {
     window.removeEventListener('keydown', window.__toolbarKeyHandler, true);
     delete window.__toolbarKeyHandler;

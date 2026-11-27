@@ -23,6 +23,8 @@
     // Counter-zoom the toolbar so it stays the same size and position
     const host = document.getElementById(HOST_ID);
     if (host) host.style.zoom = zoom === 1 ? '' : String(1 / zoom);
+    // When docked, the toolbar sizes itself to the ruler, which this zoom just resized
+    window.DesignerToolbar?.relayout?.();
 
     window.DesignerToolbar?.update('zoom-reset', { label: label(), active: zoom !== 1 });
 
