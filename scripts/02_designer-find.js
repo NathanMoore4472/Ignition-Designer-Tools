@@ -45,14 +45,28 @@
     return document.scrollingElement || document.documentElement;
   };
 
+  // Things drawn over the top/left of the canvas: the toolbar's "dock above" strip and the
+  // Designer's rulers. Centering aims at the canvas area left uncovered by them.
+  const canvasInsets = () => {
+    let top = 0, left = 0;
+    const strip = document.getElementById('__ignition-custom-toolbar-strip');
+    if (strip?.isConnected) top = strip.getBoundingClientRect().bottom;
+    const rx = document.querySelector('.view-editor > .ruler-x')?.getBoundingClientRect();
+    if (rx && rx.height > 0 && rx.bottom > top && rx.bottom < window.innerHeight / 2) top = rx.bottom;
+    const ry = document.querySelector('.view-editor > .ruler-y')?.getBoundingClientRect();
+    if (ry && ry.width > 0 && ry.right > left && ry.right < window.innerWidth / 2) left = ry.right;
+    return { top, left };
+  };
+
   // Visible area of the scroller in viewport coordinates
   const visibleRect = (scroller) => {
     const isDoc = scroller === document.scrollingElement || scroller === document.documentElement;
     const r = isDoc
       ? { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight }
       : scroller.getBoundingClientRect();
-    const left = Math.max(0, r.left);
-    const top = Math.max(0, r.top);
+    const inset = canvasInsets();
+    const left = Math.max(0, r.left, inset.left);
+    const top = Math.max(0, r.top, inset.top);
     const right = Math.min(window.innerWidth, r.right);
     const bottom = Math.min(window.innerHeight, r.bottom);
     return { left, top, right, bottom, width: right - left, height: bottom - top };

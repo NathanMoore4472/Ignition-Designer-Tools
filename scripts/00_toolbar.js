@@ -61,36 +61,37 @@
   let placed = 'floating';
   const isDocked = () => placed !== 'floating';
 
-  // ---- "Above" mode: move the view editor down to make room for a strip ----
-  // The rulers and view are absolutely positioned against the window, so the editor itself
-  // is made the positioned box, offset by the strip height. Original inline styles are kept
-  // so it can be put back exactly (on mode change, hide, cleanup or re-injection).
-  const SHIFT_PROPS = ['position', 'top', 'left', 'right', 'bottom'];
+  // ---- "Above" mode: move the whole page down to make room for a strip ----
+  // The rulers and view are absolutely positioned against the page, and the Designer pans by
+  // scrolling the page (document scroll). So rather than boxing in the editor (which would
+  // stop the page scrolling), <html> itself is offset by the strip height: everything moves
+  // down, the page still scrolls, and our fixed strip/toolbar stay at the top of the window.
+  // Original inline styles are kept so they can be put back exactly (on mode change, hide,
+  // cleanup or re-injection).
+  const SHIFT_PROPS = ['position', 'top', 'height'];
   let shifted = null; // { el, saved: {prop: value} }
 
-  const unshiftEditor = () => {
+  const unshiftPage = () => {
     if (!shifted) return;
     const { el, saved } = shifted;
     SHIFT_PROPS.forEach((p) => { el.style[p] = saved[p]; });
     shifted = null;
   };
-  window.__toolbarUnshift = unshiftEditor;
+  window.__toolbarUnshift = unshiftPage;
 
-  const shiftEditor = (el, stripH) => {
-    if (shifted && shifted.el !== el) unshiftEditor(); // editor was re-rendered
+  const shiftPage = (stripH) => {
+    const el = document.documentElement;
     if (!shifted) {
       const saved = {};
       SHIFT_PROPS.forEach((p) => { saved[p] = el.style[p]; });
       shifted = { el, saved };
     }
-    // The zoom controls zoom <body>; divide so the visual offset is exactly the strip height
-    const bodyZoom = parseFloat(document.body.style.zoom) || 1;
-    el.style.position = 'absolute';
-    el.style.top = `${stripH / bodyZoom}px`;
-    el.style.left = '0px';
-    el.style.right = '0px';
-    el.style.bottom = '0px';
+    // <html> isn't affected by the zoom controls (they zoom <body>), so px are visual px
+    el.style.position = 'relative';
+    el.style.top = `${stripH}px`;
+    el.style.height = `calc(100% - ${stripH}px)`; // don't add an extra strip-height of scroll
   };
+  const isPageShifted = () => Boolean(shifted) && document.documentElement.style.position === 'relative';
 
   const strip = document.createElement('div');
   strip.id = STRIP_ID;
@@ -212,10 +213,10 @@
     host.style.top = `${Math.max(0, (rulerH - natural * scale) / 2)}px`;
   };
 
-  // Above: own strip across the top of the page at the toolbar's normal size; the view
-  // editor (rulers + canvas) is moved down by the strip height.
+  // Above: own strip across the top of the window at the toolbar's normal size; the page
+  // (rulers + canvas) is moved down by the strip height (see shiftPage).
   const STRIP_PAD = 3;
-  const layoutAbove = (editor) => {
+  const layoutAbove = () => {
     if (strip.parentElement !== document.body) document.body.appendChild(strip);
     if (host.parentElement !== document.body || host.previousElementSibling !== strip) {
       document.body.appendChild(host); // after the strip, so it paints on top
@@ -234,7 +235,7 @@
     host.style.transform = `scale(${scale})`;
     host.style.top = `${(stripH - barH) / 2}px`;
     strip.style.height = `${stripH}px`;
-    shiftEditor(editor, stripH);
+    shiftPage(stripH);
   };
 
   let lastRulerH = -1;
@@ -250,7 +251,7 @@
     else if (mode === 'above' && editor && ruler) next = hidden ? 'above-hidden' : 'above';
 
     if (next !== 'above') {
-      unshiftEditor();
+      unshiftPage();
       strip.remove();
     }
 
@@ -268,7 +269,7 @@
 
     lastRulerH = ruler ? ruler.getBoundingClientRect().height : -1;
     if (next === 'docked') layoutDocked(ruler);
-    else if (next === 'above') layoutAbove(editor);
+    else if (next === 'above') layoutAbove();
     else if (next === 'floating') layoutFloating();
   };
 
@@ -744,7 +745,7 @@
         || Math.abs(ruler.getBoundingClientRect().height - lastRulerH) > 0.5; // zoom
     } else if (mode === 'above' && editor && ruler) {
       stale = placed !== 'above' || (!hidden && (
-        shifted?.el !== editor || editor.style.position !== 'absolute' || !strip.isConnected));
+        !isPageShifted() || !strip.isConnected));
     } else {
       stale = placed !== 'floating' || host.parentElement !== document.body;
     }
