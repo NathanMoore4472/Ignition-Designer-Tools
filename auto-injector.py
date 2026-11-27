@@ -46,6 +46,10 @@ CLEANUP_JS = r"""
     document.getElementById('__ignition-custom-toolbar-menu').remove();
     removedAny = true;
   }
+  if (document.getElementById('__ignition-custom-toolbar-restore')) {
+    document.getElementById('__ignition-custom-toolbar-restore').remove();
+    removedAny = true;
+  }
   if (window.__toolbarDockObserver) {
     window.__toolbarDockObserver.disconnect();
     delete window.__toolbarDockObserver;

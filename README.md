@@ -33,7 +33,9 @@ Upon quitting, a clean up is performed and the toolbar is removed from any Desig
 
 The toolbar has two modes. Right-click it to switch; the choice applies to all Designer tabs and is remembered.
 
-- **Docked (default):** a compact strip at the right end of the view editor's top ruler bar. It sizes itself to the ruler and re-attaches if the Designer redraws the editor.
+- **Docked (default):** a compact strip at the left end of the view editor's top ruler bar. It sizes itself to the ruler and re-attaches if the Designer redraws the editor.
+
+While the toolbar is hidden, a small toolbar icon appears in the ruler corner (the square where the two rulers meet at 0,0). Click it to show the toolbar again.
 - **Floating:** a free-floating bar you can drag anywhere over the Designer.
 
 | Shortcut | Action |

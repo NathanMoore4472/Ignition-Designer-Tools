@@ -4,11 +4,14 @@
   const MODE_KEY = '__designerToolbarMode'; // 'docked' (in the ruler bar) | 'floating'
   const HOST_ID = '__ignition-custom-toolbar-host';
   const MENU_ID = '__ignition-custom-toolbar-menu';
+  const ICON_ID = '__ignition-custom-toolbar-restore';
   const RULER_SELECTOR = '.view-editor > .ruler-x';
+  const CORNER_SELECTOR = '.view-editor > .ruler-corner';
 
   // ---- Tear down a previous instance (re-injection) ----
   document.getElementById(HOST_ID)?.remove();
   document.getElementById(MENU_ID)?.remove();
+  document.getElementById(ICON_ID)?.remove();
   if (window.__toolbarKeyHandler) {
     window.removeEventListener('keydown', window.__toolbarKeyHandler, true);
   }
@@ -135,13 +138,13 @@
     }
   };
 
-  // Docked: sized to the ruler's height, but never smaller than 75% of the normal size so it
+  // Docked: at the left end of the ruler, sized to the ruler's height, but never smaller than 75% of the normal size so it
   // stays readable at low zoom (it then hangs slightly below the ruler).
   const layoutDocked = (ruler) => {
     host.style.position = 'absolute';
-    host.style.left = 'auto';
-    host.style.right = '4px';
-    host.style.transformOrigin = '100% 0';
+    host.style.left = '2px';
+    host.style.right = 'auto';
+    host.style.transformOrigin = '0 0';
     host.style.transform = 'none';
     const natural = host.getBoundingClientRect().height;
     const rulerH = ruler.getBoundingClientRect().height;
@@ -382,6 +385,59 @@
   };
   window.addEventListener('pointerdown', window.__toolbarMenuCloser, true);
 
+  // ---- Restore icon: shown in the ruler corner (where the two rulers meet) while hidden ----
+  const iconHost = document.createElement('div');
+  iconHost.id = ICON_ID;
+  iconHost.style.cssText = 'position:absolute;inset:0;z-index:2147483647;display:none;';
+  const iconShadow = iconHost.attachShadow({ mode: 'open' });
+  iconShadow.innerHTML = `
+    <style>
+      button {
+        appearance: none;
+        all: unset;
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+        border-radius: 3px;
+        color: #4b5563;
+      }
+      button:hover { background: rgba(29, 78, 216, 0.15); color: #1d4ed8; }
+      svg { width: 70%; height: 70%; display: block; }
+    </style>
+    <button type="button" id="restore" tabindex="-1" title="Show toolbar (Ctrl+\\)">
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <rect x="1" y="4" width="14" height="8" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <rect x="4" y="7" width="2" height="2" fill="currentColor"/>
+        <rect x="7" y="7" width="2" height="2" fill="currentColor"/>
+        <rect x="10" y="7" width="2" height="2" fill="currentColor"/>
+      </svg>
+    </button>
+  `;
+  const restoreBtn = iconShadow.getElementById('restore');
+  shieldEvents(restoreBtn);
+  restoreBtn.addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); });
+  restoreBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setHidden(false);
+  });
+
+  // Keep the icon in the current ruler corner, visible only while the toolbar is hidden
+  function placeIcon() {
+    if (!document.body) return;
+    const corner = document.querySelector(CORNER_SELECTOR);
+    if (corner) {
+      if (iconHost.parentElement !== corner) corner.appendChild(iconHost);
+    } else if (iconHost.isConnected) {
+      iconHost.remove();
+    }
+    iconHost.style.display = corner && bar.classList.contains('hidden') ? 'block' : 'none';
+  }
+
   // ---- Dragging via the "Tools" handle (floating only) ----
   let drag = null;
 
@@ -468,6 +524,7 @@
   function setHidden(hidden) {
     bar.classList.toggle('hidden', Boolean(hidden));
     if (hidden) closeMenu();
+    placeIcon();
     try { localStorage.setItem(HIDDEN_KEY, hidden ? '1' : '0'); } catch {}
     console.log(`[Toolbar] ${hidden ? 'Hidden' : 'Visible'} (all tabs)`);
   }
@@ -498,6 +555,7 @@
   window.__toolbarHiddenSync = (e) => {
     if (e?.type === 'storage' && e.key !== HIDDEN_KEY && e.key !== MODE_KEY) return;
     bar.classList.toggle('hidden', readHidden());
+    placeIcon();
     const nextMode = readMode();
     if (nextMode !== mode) {
       mode = nextMode;
@@ -532,6 +590,8 @@
     } else if (ruler && Math.abs(ruler.getBoundingClientRect().height - lastRulerH) > 0.5) {
       relayout(); // ruler resized (zoom)
     }
+    const corner = document.querySelector(CORNER_SELECTOR);
+    if ((corner || null) !== (iconHost.isConnected ? iconHost.parentElement : null)) placeIcon();
   };
   window.__toolbarDockObserver = new MutationObserver(() => {
     if (checkQueued) return;
@@ -545,6 +605,7 @@
       renderButton(window.__toolbarQueue.shift());
     }
     relayout();
+    placeIcon();
     window.__toolbarDockObserver.observe(document.body, { childList: true, subtree: true });
     console.log(`[Toolbar] Ready, ${isDocked() ? 'docked in ruler bar' : 'floating'} (Ctrl+\\ to toggle, right-click for options).`);
   };
