@@ -262,9 +262,9 @@
 
     placed = next === 'above-hidden' ? 'above' : next;
     bar.classList.toggle('docked', placed !== 'floating');
-    handle.title = placed !== 'floating'
-      ? 'Right-click for options (dock / float) · Ctrl+\\ to hide/show'
-      : 'Drag to move · Scroll to resize · Double-click to reset position and size · Right-click for options · Ctrl+\\ to hide/show';
+    handle.title = 'Drag to move · Scroll to resize · Double-click to reset position and size · Right-click for options · Ctrl+\\ to hide/show';
+    // Docked has no grip, so put the hint on the bar itself (buttons keep their own tooltips)
+    bar.title = placed !== 'floating' ? 'Right-click for options (dock / float / theme) · Ctrl+\\ to hide/show' : '';
 
     lastRulerH = ruler ? ruler.getBoundingClientRect().height : -1;
     if (next === 'docked') layoutDocked(ruler);
@@ -363,9 +363,8 @@
         border-radius: 3px;
       }
       .bar.docked button:active { transform: none; }
-      .bar.docked .handle { cursor: context-menu; padding: 0 2px; }
-      .bar.docked .hint { display: none; }
-      .bar.docked .grip { font-size: 11px; }
+      /* Nothing to drag when docked, so no grip; right-click anywhere on the bar still works */
+      .bar.docked .handle { display: none; }
 
       /* Light theme */
       :host([data-theme="light"]) .bar {
