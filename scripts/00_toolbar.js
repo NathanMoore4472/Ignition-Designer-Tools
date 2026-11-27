@@ -1,5 +1,6 @@
 (() => {
   const TOGGLE_KEY = '\\'; // Ctrl + \ toggles toolbar visibility
+  const HIDDEN_KEY = '__designerToolbarHidden';
 
   document.getElementById('__ignition-custom-toolbar-host')?.remove();
   if (window.__toolbarKeyHandler) {
@@ -8,6 +9,10 @@
   if (window.__toolbarZoomHandler) {
     window.removeEventListener('resize', window.__toolbarZoomHandler);
     window.visualViewport?.removeEventListener('resize', window.__toolbarZoomHandler);
+  }
+  if (window.__toolbarHiddenSync) {
+    window.removeEventListener('storage', window.__toolbarHiddenSync);
+    window.removeEventListener('focus', window.__toolbarHiddenSync);
   }
 
   window.__toolbarQueue = window.__toolbarQueue || [];
@@ -281,10 +286,31 @@
       if (updates.active !== undefined) btn.classList.toggle('active', Boolean(updates.active));
     },
     toggleVisibility() {
-      bar.classList.toggle('hidden');
-      console.log(`[Toolbar] ${bar.classList.contains('hidden') ? 'Hidden' : 'Visible'}`);
-    }
+      setHidden(!bar.classList.contains('hidden'));
+    },
+    setHidden
   };
+
+  // ---- Hidden state (shared by every Designer tab on this gateway via localStorage) ----
+  function readHidden() {
+    try { return localStorage.getItem(HIDDEN_KEY) === '1'; } catch { return false; }
+  }
+
+  function setHidden(hidden) {
+    bar.classList.toggle('hidden', Boolean(hidden));
+    try { localStorage.setItem(HIDDEN_KEY, hidden ? '1' : '0'); } catch {}
+    console.log(`[Toolbar] ${hidden ? 'Hidden' : 'Visible'} (all tabs)`);
+  }
+
+  // Other tabs: the 'storage' event fires when one tab changes the value. 'focus' is a
+  // fallback re-check in case the embedded browser doesn't deliver storage events.
+  window.__toolbarHiddenSync = (e) => {
+    if (e?.type === 'storage' && e.key !== HIDDEN_KEY) return;
+    bar.classList.toggle('hidden', readHidden());
+  };
+  window.addEventListener('storage', window.__toolbarHiddenSync);
+  window.addEventListener('focus', window.__toolbarHiddenSync);
+  bar.classList.toggle('hidden', readHidden());
 
   window.__toolbarKeyHandler = (e) => {
     if (e.ctrlKey && !e.altKey && !e.metaKey && e.key === TOGGLE_KEY) {

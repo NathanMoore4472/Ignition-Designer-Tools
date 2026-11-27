@@ -74,6 +74,12 @@ CLEANUP_JS = r"""
     delete window.__centerSelectionScrollHandler;
     removedAny = true;
   }
+  if (window.__toolbarHiddenSync) {
+    window.removeEventListener('storage', window.__toolbarHiddenSync);
+    window.removeEventListener('focus', window.__toolbarHiddenSync);
+    delete window.__toolbarHiddenSync;
+    removedAny = true;
+  }
   if (window.__zoomKeyHandler) {
     window.removeEventListener('keydown', window.__zoomKeyHandler, true);
     delete window.__zoomKeyHandler;

@@ -33,7 +33,7 @@ Upon quitting, a clean up is performed and the toolbar is removed from any Desig
 
 | Shortcut | Action |
 |---|---|
-| `Ctrl + \` | Show / hide the toolbar |
+| `Ctrl + \` | Show / hide the toolbar — applies to all Designer tabs and is remembered until shown again |
 | Drag the "⋮⋮ Tools" handle | Move the toolbar (position is remembered) |
 | Scroll over "⋮⋮ Tools" | Make the toolbar bigger / smaller (size is remembered) |
 | Double-click "⋮⋮ Tools" | Reset position to top-left and size to normal (100% zoom size) |
