@@ -38,8 +38,42 @@ IGNORED_TITLES = {"DrawingEditor"}
 CLEANUP_JS = r"""
 (() => {
   let removedAny = false;
+  if (window.__toolbarUnshift) {
+    // "Dock above ruler" moves the view editor down; put it back first
+    window.__toolbarUnshift();
+    delete window.__toolbarUnshift;
+    removedAny = true;
+  }
+  if (document.getElementById('__ignition-custom-toolbar-strip')) {
+    document.getElementById('__ignition-custom-toolbar-strip').remove();
+    removedAny = true;
+  }
   if (document.getElementById('__ignition-custom-toolbar-host')) {
     document.getElementById('__ignition-custom-toolbar-host').remove();
+    removedAny = true;
+  }
+  if (document.getElementById('__ignition-custom-toolbar-menu')) {
+    document.getElementById('__ignition-custom-toolbar-menu').remove();
+    removedAny = true;
+  }
+  if (document.getElementById('__ignition-custom-toolbar-restore')) {
+    document.getElementById('__ignition-custom-toolbar-restore').remove();
+    removedAny = true;
+  }
+  if (window.__toolbarDockObserver) {
+    window.__toolbarDockObserver.disconnect();
+    delete window.__toolbarDockObserver;
+    removedAny = true;
+  }
+  if (window.__toolbarMenuCloser) {
+    window.removeEventListener('pointerdown', window.__toolbarMenuCloser, true);
+    delete window.__toolbarMenuCloser;
+    removedAny = true;
+  }
+  if (window.__toolbarZoomHandler) {
+    window.removeEventListener('resize', window.__toolbarZoomHandler);
+    window.visualViewport?.removeEventListener('resize', window.__toolbarZoomHandler);
+    delete window.__toolbarZoomHandler;
     removedAny = true;
   }
   if (window.__toolbarKeyHandler) {

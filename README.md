@@ -13,7 +13,7 @@ designer-tools/
 ├── designer-tools.lnk    # Shortcut to the .vbs (adjust its target path, see below)
 ├── icon.ico              # Tray icon
 └── scripts/
-    ├── 00_toolbar.js         # Floating Shadow DOM toolbar (Ctrl + \), draggable & resizable
+    ├── 00_toolbar.js         # Toolbar docked in the ruler bar or floating (Ctrl + \, right-click for options)
     ├── 01_zoom-controls.js   # Zoom in / out / reset (Alt+= / Alt+- / Alt+0)
     └── 02_designer-find.js   # Auto-follow & Center (F / Shift+F)
 ```
@@ -31,14 +31,29 @@ Upon quitting, a clean up is performed and the toolbar is removed from any Desig
 
 ### Toolbar
 
+The toolbar has three modes. Right-click it to switch; the choice applies to all Designer tabs and is remembered.
+
+- **Dock in ruler bar (default):** a compact strip at the left end of the view editor's top ruler. It sizes itself to the ruler and re-attaches if the Designer redraws the editor.
+- **Dock above ruler:** its own strip across the top of the editor; the rulers and canvas are moved down to make room. Hiding the toolbar gives the space back.
+- **Floating:** a free-floating bar you can drag anywhere over the Designer.
+
+The toolbar (and its menu and strip) comes in a dark (default) or light theme; toggle **Light theme** in the right-click menu. Like the mode, it applies to all tabs and is remembered.
+
+A toolbar icon always sits in the ruler corner (the square where the two rulers meet at 0,0). Click it to show or hide the toolbar; it is highlighted while the toolbar is showing.
+
 | Shortcut | Action |
 |---|---|
 | `Ctrl + \` | Show / hide the toolbar — applies to all Designer tabs and is remembered until shown again |
-| Drag the "⋮⋮ Tools" handle | Move the toolbar (position is remembered) |
-| Scroll over "⋮⋮ Tools" | Make the toolbar bigger / smaller (size is remembered) |
-| Double-click "⋮⋮ Tools" | Reset position to top-left and size to normal (100% zoom size) |
+| Click the ruler-corner icon | Show / hide the toolbar |
+| Right-click the toolbar | Menu: Dock above ruler / Dock in ruler bar / Floating / Reset floating position & size / Light theme / Hide toolbar |
+| Drag the "⋮⋮ Tools" handle | Move the toolbar (floating; position is remembered) |
+| Scroll over "⋮⋮ Tools" | Make the toolbar bigger / smaller (floating; size is remembered) |
+| Double-click "⋮⋮ Tools" | Reset position to top-left and size to normal (floating; 100% zoom size) |
 
-The toolbar keeps the same size when the Designer zoom changes, and stays on-screen when the window is resized.
+The floating toolbar keeps the same size when the Designer zoom changes, and stays on-screen when the window is resized.
+Pages without a ruler bar fall back to floating.
+
+From the console: `DesignerToolbar.setMode('docked' | 'above' | 'floating')`, `DesignerToolbar.setTheme('dark' | 'light')`, `DesignerToolbar.setHidden(true | false)`.
 
 ### Center / Auto-Follow / Zoom-to-Fit
 
