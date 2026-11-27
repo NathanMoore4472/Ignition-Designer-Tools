@@ -1,17 +1,23 @@
 (() => {
   const TOGGLE_KEY = '\\'; // Ctrl + \ toggles toolbar visibility
   const HIDDEN_KEY = '__designerToolbarHidden';
-  const MODE_KEY = '__designerToolbarMode'; // 'docked' (in the ruler bar) | 'floating'
+  // 'docked' (inside the ruler bar) | 'above' (own strip above the rulers) | 'floating'
+  const MODE_KEY = '__designerToolbarMode';
+  const MODES = ['docked', 'above', 'floating'];
   const HOST_ID = '__ignition-custom-toolbar-host';
   const MENU_ID = '__ignition-custom-toolbar-menu';
   const ICON_ID = '__ignition-custom-toolbar-restore';
+  const STRIP_ID = '__ignition-custom-toolbar-strip';
+  const EDITOR_SELECTOR = '.view-editor';
   const RULER_SELECTOR = '.view-editor > .ruler-x';
   const CORNER_SELECTOR = '.view-editor > .ruler-corner';
 
   // ---- Tear down a previous instance (re-injection) ----
+  window.__toolbarUnshift?.(); // put the view editor back if "above" mode had moved it
   document.getElementById(HOST_ID)?.remove();
   document.getElementById(MENU_ID)?.remove();
   document.getElementById(ICON_ID)?.remove();
+  document.getElementById(STRIP_ID)?.remove();
   if (window.__toolbarKeyHandler) {
     window.removeEventListener('keydown', window.__toolbarKeyHandler, true);
   }
@@ -36,12 +42,53 @@
 
   // ---- Mode ----
   const readMode = () => {
-    try { return localStorage.getItem(MODE_KEY) === 'floating' ? 'floating' : 'docked'; } catch { return 'docked'; }
+    try {
+      const m = localStorage.getItem(MODE_KEY);
+      return MODES.includes(m) ? m : 'docked';
+    } catch { return 'docked'; }
   };
   let mode = readMode();
   const findRuler = () => document.querySelector(RULER_SELECTOR);
-  // Where the toolbar actually is right now: docked only when a ruler exists to dock into
-  const isDocked = () => host.parentElement?.matches?.(RULER_SELECTOR) === true;
+  // Where the toolbar actually is right now (a docked mode falls back to floating on
+  // pages without a view editor). Dragging/resizing only applies when floating.
+  let placed = 'floating';
+  const isDocked = () => placed !== 'floating';
+
+  // ---- "Above" mode: move the view editor down to make room for a strip ----
+  // The rulers and view are absolutely positioned against the window, so the editor itself
+  // is made the positioned box, offset by the strip height. Original inline styles are kept
+  // so it can be put back exactly (on mode change, hide, cleanup or re-injection).
+  const SHIFT_PROPS = ['position', 'top', 'left', 'right', 'bottom'];
+  let shifted = null; // { el, saved: {prop: value} }
+
+  const unshiftEditor = () => {
+    if (!shifted) return;
+    const { el, saved } = shifted;
+    SHIFT_PROPS.forEach((p) => { el.style[p] = saved[p]; });
+    shifted = null;
+  };
+  window.__toolbarUnshift = unshiftEditor;
+
+  const shiftEditor = (el, stripH) => {
+    if (shifted && shifted.el !== el) unshiftEditor(); // editor was re-rendered
+    if (!shifted) {
+      const saved = {};
+      SHIFT_PROPS.forEach((p) => { saved[p] = el.style[p]; });
+      shifted = { el, saved };
+    }
+    // The zoom controls zoom <body>; divide so the visual offset is exactly the strip height
+    const bodyZoom = parseFloat(document.body.style.zoom) || 1;
+    el.style.position = 'absolute';
+    el.style.top = `${stripH / bodyZoom}px`;
+    el.style.left = '0px';
+    el.style.right = '0px';
+    el.style.bottom = '0px';
+  };
+
+  const strip = document.createElement('div');
+  strip.id = STRIP_ID;
+  strip.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483646;box-sizing:border-box;' +
+    'background:#1f2228;border-bottom:1px solid rgba(255,255,255,0.08);';
 
   // ---- Floating position (draggable, remembered per gateway origin) ----
   const POS_KEY = '__designerToolbarPos';
@@ -155,27 +202,68 @@
     host.style.top = `${Math.max(0, (rulerH - natural * scale) / 2)}px`;
   };
 
+  // Above: own strip across the top of the page at the toolbar's normal size; the view
+  // editor (rulers + canvas) is moved down by the strip height.
+  const STRIP_PAD = 3;
+  const layoutAbove = (editor) => {
+    if (strip.parentElement !== document.body) document.body.appendChild(strip);
+    if (host.parentElement !== document.body || host.previousElementSibling !== strip) {
+      document.body.appendChild(host); // after the strip, so it paints on top
+    }
+    const bodyZoom = parseFloat(document.body.style.zoom) || 1;
+    strip.style.zoom = bodyZoom === 1 ? '' : String(1 / bodyZoom);
+    host.style.position = 'fixed';
+    host.style.right = '';
+    host.style.left = '4px';
+    host.style.transformOrigin = '0 0';
+    host.style.transform = 'none';
+    const natural = host.getBoundingClientRect().height;
+    const scale = baseScale();
+    const barH = natural * scale;
+    const stripH = Math.ceil(barH + STRIP_PAD * 2);
+    host.style.transform = `scale(${scale})`;
+    host.style.top = `${(stripH - barH) / 2}px`;
+    strip.style.height = `${stripH}px`;
+    shiftEditor(editor, stripH);
+  };
+
   let lastRulerH = -1;
   const relayout = () => {
     if (!document.body) return;
-    const ruler = mode === 'docked' ? findRuler() : null;
-    const target = ruler || document.body;
-    if (host.parentElement !== target) target.appendChild(host);
-    bar.classList.toggle('docked', Boolean(ruler));
-    handle.title = ruler
-      ? 'Right-click for options (float / dock) · Ctrl+\\ to hide/show'
-      : 'Drag to move · Scroll to resize · Double-click to reset position and size · Right-click for options · Ctrl+\\ to hide/show';
-    if (ruler) {
-      lastRulerH = ruler.getBoundingClientRect().height;
-      layoutDocked(ruler);
-    } else {
-      lastRulerH = -1;
-      layoutFloating();
+    const hidden = bar.classList.contains('hidden');
+    const editor = document.querySelector(EDITOR_SELECTOR);
+    const ruler = findRuler();
+
+    // Hidden "above" gives the space back; it keeps its mode for when it's shown again
+    let next = 'floating';
+    if (mode === 'docked' && ruler) next = 'docked';
+    else if (mode === 'above' && editor && ruler) next = hidden ? 'above-hidden' : 'above';
+
+    if (next !== 'above') {
+      unshiftEditor();
+      strip.remove();
     }
+
+    if (next === 'docked') {
+      if (host.parentElement !== ruler) ruler.appendChild(host);
+    } else if (host.parentElement !== document.body) {
+      document.body.appendChild(host);
+    }
+
+    placed = next === 'above-hidden' ? 'above' : next;
+    bar.classList.toggle('docked', placed !== 'floating');
+    handle.title = placed !== 'floating'
+      ? 'Right-click for options (dock / float) · Ctrl+\\ to hide/show'
+      : 'Drag to move · Scroll to resize · Double-click to reset position and size · Right-click for options · Ctrl+\\ to hide/show';
+
+    lastRulerH = ruler ? ruler.getBoundingClientRect().height : -1;
+    if (next === 'docked') layoutDocked(ruler);
+    else if (next === 'above') layoutAbove(editor);
+    else if (next === 'floating') layoutFloating();
   };
 
   const setMode = (next) => {
-    mode = next === 'floating' ? 'floating' : 'docked';
+    mode = MODES.includes(next) ? next : 'docked';
     try { localStorage.setItem(MODE_KEY, mode); } catch {}
     relayout();
     console.log(`[Toolbar] Mode: ${mode} (all tabs)`);
@@ -329,6 +417,7 @@
       .item.disabled:hover { background: none; }
     </style>
     <div class="menu" id="menu">
+      <div class="item" data-act="above"><span class="check"></span>Dock above ruler</div>
       <div class="item" data-act="docked"><span class="check"></span>Dock in ruler bar</div>
       <div class="item" data-act="floating"><span class="check"></span>Floating (drag to move)</div>
       <div class="sep"></div>
@@ -348,7 +437,9 @@
       // Reset only applies to floating mode
       item.classList.toggle('disabled', act === 'reset' && mode !== 'floating');
     });
-    if (!menuHost.isConnected) document.body.appendChild(menuHost);
+    // Always (re)append so the menu is the last element in <body> and paints above the
+    // toolbar, which may have been re-appended since (both share the max z-index)
+    document.body.appendChild(menuHost);
     // Cancel the zoom controls' body zoom and the Designer zoom, like the floating toolbar
     const bodyZoom = parseFloat(document.body.style.zoom) || 1;
     menuHost.style.zoom = bodyZoom === 1 ? '' : String(1 / bodyZoom);
@@ -373,7 +464,7 @@
     if (!item || item.classList.contains('disabled')) return;
     const act = item.dataset.act;
     closeMenu();
-    if (act === 'docked' || act === 'floating') setMode(act);
+    if (MODES.includes(act)) setMode(act);
     else if (act === 'reset') resetFloating();
     else if (act === 'hide') setHidden(true);
   });
@@ -385,10 +476,10 @@
   };
   window.addEventListener('pointerdown', window.__toolbarMenuCloser, true);
 
-  // ---- Restore icon: shown in the ruler corner (where the two rulers meet) while hidden ----
+  // ---- Toggle icon: always shown in the ruler corner (where the two rulers meet) ----
   const iconHost = document.createElement('div');
   iconHost.id = ICON_ID;
-  iconHost.style.cssText = 'position:absolute;inset:0;z-index:2147483647;display:none;';
+  iconHost.style.cssText = 'position:absolute;inset:0;z-index:2147483647;';
   const iconShadow = iconHost.attachShadow({ mode: 'open' });
   iconShadow.innerHTML = `
     <style>
@@ -406,9 +497,10 @@
         color: #4b5563;
       }
       button:hover { background: rgba(29, 78, 216, 0.15); color: #1d4ed8; }
+      button.on { color: #1d4ed8; }
       svg { width: 70%; height: 70%; display: block; }
     </style>
-    <button type="button" id="restore" tabindex="-1" title="Show toolbar (Ctrl+\\)">
+    <button type="button" id="restore" tabindex="-1" title="Show / hide toolbar (Ctrl+\\)">
       <svg viewBox="0 0 16 16" aria-hidden="true">
         <rect x="1" y="4" width="14" height="8" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/>
         <rect x="4" y="7" width="2" height="2" fill="currentColor"/>
@@ -423,10 +515,10 @@
   restoreBtn.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
-    setHidden(false);
+    setHidden(!bar.classList.contains('hidden'));
   });
 
-  // Keep the icon in the current ruler corner, visible only while the toolbar is hidden
+  // Keep the icon in the current ruler corner; highlighted while the toolbar is showing
   function placeIcon() {
     if (!document.body) return;
     const corner = document.querySelector(CORNER_SELECTOR);
@@ -435,7 +527,7 @@
     } else if (iconHost.isConnected) {
       iconHost.remove();
     }
-    iconHost.style.display = corner && bar.classList.contains('hidden') ? 'block' : 'none';
+    restoreBtn.classList.toggle('on', !bar.classList.contains('hidden'));
   }
 
   // ---- Dragging via the "Tools" handle (floating only) ----
@@ -525,6 +617,7 @@
     bar.classList.toggle('hidden', Boolean(hidden));
     if (hidden) closeMenu();
     placeIcon();
+    relayout(); // "above" mode collapses its strip while hidden
     try { localStorage.setItem(HIDDEN_KEY, hidden ? '1' : '0'); } catch {}
     console.log(`[Toolbar] ${hidden ? 'Hidden' : 'Visible'} (all tabs)`);
   }
@@ -554,10 +647,11 @@
   // fallback re-check in case the embedded browser doesn't deliver storage events.
   window.__toolbarHiddenSync = (e) => {
     if (e?.type === 'storage' && e.key !== HIDDEN_KEY && e.key !== MODE_KEY) return;
+    const wasHidden = bar.classList.contains('hidden');
     bar.classList.toggle('hidden', readHidden());
     placeIcon();
     const nextMode = readMode();
-    if (nextMode !== mode) {
+    if (nextMode !== mode || wasHidden !== bar.classList.contains('hidden')) {
       mode = nextMode;
       relayout();
     }
@@ -583,13 +677,20 @@
   const checkDock = () => {
     checkQueued = false;
     if (!document.body) return;
-    const ruler = mode === 'docked' ? findRuler() : null;
-    const target = ruler || document.body;
-    if (host.parentElement !== target) {
-      relayout();
-    } else if (ruler && Math.abs(ruler.getBoundingClientRect().height - lastRulerH) > 0.5) {
-      relayout(); // ruler resized (zoom)
+    const ruler = findRuler();
+    const editor = document.querySelector(EDITOR_SELECTOR);
+    const hidden = bar.classList.contains('hidden');
+    let stale = false;
+    if (mode === 'docked' && ruler) {
+      stale = host.parentElement !== ruler
+        || Math.abs(ruler.getBoundingClientRect().height - lastRulerH) > 0.5; // zoom
+    } else if (mode === 'above' && editor && ruler) {
+      stale = placed !== 'above' || (!hidden && (
+        shifted?.el !== editor || editor.style.position !== 'absolute' || !strip.isConnected));
+    } else {
+      stale = placed !== 'floating' || host.parentElement !== document.body;
     }
+    if (stale) relayout();
     const corner = document.querySelector(CORNER_SELECTOR);
     if ((corner || null) !== (iconHost.isConnected ? iconHost.parentElement : null)) placeIcon();
   };

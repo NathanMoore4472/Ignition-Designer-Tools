@@ -38,6 +38,16 @@ IGNORED_TITLES = {"DrawingEditor"}
 CLEANUP_JS = r"""
 (() => {
   let removedAny = false;
+  if (window.__toolbarUnshift) {
+    // "Dock above ruler" moves the view editor down; put it back first
+    window.__toolbarUnshift();
+    delete window.__toolbarUnshift;
+    removedAny = true;
+  }
+  if (document.getElementById('__ignition-custom-toolbar-strip')) {
+    document.getElementById('__ignition-custom-toolbar-strip').remove();
+    removedAny = true;
+  }
   if (document.getElementById('__ignition-custom-toolbar-host')) {
     document.getElementById('__ignition-custom-toolbar-host').remove();
     removedAny = true;
